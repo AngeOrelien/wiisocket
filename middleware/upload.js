@@ -1,17 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
-
-// Stockage local dans /uploads (voir services/storageService.js pour la migration R2)
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '..', 'uploads'));
-    },
-    filename: (req, file, cb) => {
-        const uniqueName = crypto.randomBytes(16).toString('hex') + path.extname(file.originalname);
-        cb(null, uniqueName);
-    },
-});
+const { isProduction } = require('../config/env');
 
 function fileFilter(req, file, cb) {
     const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
@@ -21,6 +11,19 @@ function fileFilter(req, file, cb) {
     }
     cb(null, true);
 }
+
+// PRODUCTION : pas de disque persistant sur Vercel -> le fichier reste en mémoire (buffer)
+// et part directement vers Cloudflare R2 (voir services/storageService.js).
+// DEVELOPPEMENT : écriture directe dans /uploads, plus simple, pas besoin de credentials R2.
+const storage = isProduction
+    ? multer.memoryStorage()
+    : multer.diskStorage({
+          destination: (req, file, cb) => cb(null, path.join(__dirname, '..', 'uploads')),
+          filename: (req, file, cb) => {
+              const uniqueName = crypto.randomBytes(16).toString('hex') + path.extname(file.originalname);
+              cb(null, uniqueName);
+          },
+      });
 
 const upload = multer({
     storage,

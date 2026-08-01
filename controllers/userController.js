@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const { getLocalFileUrl } = require('../services/storageService');
+const { saveProfilePhoto } = require('../services/storageService');
 
 // GET /api/users/me
 exports.getMe = async (req, res) => {
@@ -19,9 +19,8 @@ exports.updateMe = async (req, res) => {
         if (typeof website === 'string') user.website = website.slice(0, 120);
         if (typeof statusMessage === 'string') user.statusMessage = statusMessage.slice(0, 40);
 
-        if (req.file) {
-            user.profileImage = getLocalFileUrl(req, req.file.filename);
-        }
+        const photoUrl = await saveProfilePhoto(req);
+        if (photoUrl) user.profileImage = photoUrl;
 
         await user.save();
         res.status(200).json({ message: 'Profil mis à jour', user: user.toPublicJSON() });
