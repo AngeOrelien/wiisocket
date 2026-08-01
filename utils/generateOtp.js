@@ -1,0 +1,8 @@
+// Génère un code OTP à 6 chiffres, valable 10 minutes
+function generateOtp() {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    return { code, expiresAt };
+}
+
+module.exports = generateOtp;
