@@ -102,7 +102,7 @@ io.on('connection', (socket) => {
                     lastMessage: { text: newMessage.text, senderId: socket.userId, createdAt: newMessage.createdAt },
                     updatedAt: newMessage.createdAt,
                 },
-                { upsert: true, new: true }
+                { upsert: true, returnDocument: 'after' }
             ).populate('participants', 'username profileImage bio statusMessage');
 
             io.to(receiverId).to(socket.userId).emit('conversation_updated', conversation);
