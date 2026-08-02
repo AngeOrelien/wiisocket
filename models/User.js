@@ -48,6 +48,45 @@ const userSchema = new mongoose.Schema({
         default: '',
         maxlength: 40,
     },
+    // --- Champs spécifiques à une communauté d'informaticiens ---
+    // Domaine / filière (ex: Développement Web, DevOps, Data Science, Cybersécurité...)
+    specialty: {
+        type: String,
+        default: '',
+        maxlength: 60,
+    },
+    // Poste occupé, ex: "Ingénieur Backend", "Étudiant en informatique"
+    jobTitle: {
+        type: String,
+        default: '',
+        maxlength: 60,
+    },
+    // Entreprise, école ou université
+    company: {
+        type: String,
+        default: '',
+        maxlength: 80,
+    },
+    experienceLevel: {
+        type: String,
+        enum: ['', 'Étudiant', 'Junior', 'Confirmé', 'Senior', 'Expert'],
+        default: '',
+    },
+    // Compétences techniques (langages, frameworks, outils...)
+    skills: {
+        type: [String],
+        default: [],
+    },
+    githubUrl: {
+        type: String,
+        default: '',
+        maxlength: 120,
+    },
+    linkedinUrl: {
+        type: String,
+        default: '',
+        maxlength: 120,
+    },
     // Chemin/URL de la photo de profil.
     // Pour l'instant : fichier local servi via /uploads/xxx.jpg
     // Plus tard : URL publique Cloudflare R2 (voir services/storageService.js)
@@ -84,6 +123,13 @@ userSchema.methods.toPublicJSON = function () {
         location: this.location,
         website: this.website,
         statusMessage: this.statusMessage,
+        specialty: this.specialty,
+        jobTitle: this.jobTitle,
+        company: this.company,
+        experienceLevel: this.experienceLevel,
+        skills: this.skills,
+        githubUrl: this.githubUrl,
+        linkedinUrl: this.linkedinUrl,
         profileImage: this.profileImage,
         isVerified: this.isVerified,
         createdAt: this.createdAt,

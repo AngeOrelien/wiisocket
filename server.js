@@ -12,8 +12,11 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 const Message = require('./models/Message');
 const Conversation = require('./models/Conversation');
+const Group = require('./models/Group');
+const GroupMessage = require('./models/GroupMessage');
 
 connectDB();
 
@@ -38,6 +41,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/groups', groupRoutes);
 
 app.get('/', (req, res) => res.send('WiiSocket API en ligne'));
 
@@ -53,6 +57,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: isProduction && clientOrigins.length ? clientOrigins : '*', methods: ['GET', 'POST'] },
 });
+
+// Permet aux controllers REST (ex: création de groupe) d'émettre des events temps réel
+app.set('io', io);
 
 // Authentification du socket via le JWT envoyé par le client (query ou auth)
 io.use((socket, next) => {
@@ -114,6 +121,43 @@ io.on('connection', (socket) => {
     // Indicateur "en train d'écrire..."
     socket.on('typing', ({ receiverId }) => {
         if (receiverId) io.to(receiverId).emit('user_typing', { userId: socket.userId });
+    });
+
+    // Message de groupe : diffusé directement vers la "room personnelle" de chaque membre
+    // (pas besoin que le socket rejoigne une room dédiée au groupe)
+    socket.on('send_group_message', async (data) => {
+        const { groupId, text } = data;
+        if (!groupId || !text || !text.trim()) return;
+
+        try {
+            const group = await Group.findById(groupId);
+            if (!group) return;
+            const isMember = group.members.some((m) => m.user.toString() === socket.userId);
+            if (!isMember) return;
+
+            const newMessage = await GroupMessage.create({
+                groupId,
+                senderId: socket.userId,
+                text: text.trim(),
+            });
+
+            group.lastMessage = { text: newMessage.text, senderId: socket.userId, createdAt: newMessage.createdAt };
+            group.updatedAt = newMessage.createdAt;
+            await group.save();
+            await group.populate('members.user', 'username profileImage bio specialty jobTitle');
+
+            const memberIds = group.members.map((m) => m.user._id.toString());
+            io.to(memberIds).emit('receive_group_message', newMessage);
+            io.to(memberIds).emit('group_updated', group);
+        } catch (error) {
+            logger.error("Erreur lors de l'envoi du message de groupe :", error);
+        }
+    });
+
+    socket.on('group_typing', ({ groupId, memberIds }) => {
+        if (groupId && Array.isArray(memberIds)) {
+            io.to(memberIds).emit('group_user_typing', { groupId, userId: socket.userId });
+        }
     });
 
     socket.on('disconnect', () => {
